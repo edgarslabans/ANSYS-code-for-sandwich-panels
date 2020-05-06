@@ -1,0 +1,150 @@
+! The file represents ANSYS commmand interface script for creating of 2D the parametrical model 
+! of the sanwich panel for further thermal analysis
+! The output of the file is effective thermal conductivity of the sandwich panel with foam core
+
+finish
+/clear
+/PREP7		! Enter preprocessor
+
+
+P1=3		! number of surface layers (1 - 3 layers; 2 - 5 layers; 3- 7 layers)
+P2=P1
+P3=3		! number of layers in the stiffener (1 - 3 layers; 2 - 5 layers; 3- 7 layers)
+P4=0.2		! distance between stiffeners (0.01 - 0.08 m)
+P5=0.12		! thickness of the panel ! (0.03 - 0.05 m) (also 0.025 m)
+P6=100		! max stress of the foam
+
+
+stiffener_off = 0   ! do not take stiffener into account if 1
+
+
+! define geometry
+
+
+t1=0.0013			! thickness of one layer
+
+
+height = P5
+Face_thickness = P1*2*t1+t1		! face thickness	
+Rib_thickness = P3*2*t1+t1		! stiffener thickness
+length = P4 +Rib_thickness		! section length
+
+k_foam =P6*0.0001+0.0084		! thermal conductivity of the foam (function of max stress)
+k_plw = 0.13				! thermal conductivity of the plywood
+
+ESIZE = 0.001			! Element size
+
+
+TEMP1 = 100 			! lower temperature
+TEMP2 = 500			! upper temperature
+
+
+
+blc4,0,0,length, Face_thickness					! area - one corner, then width and height
+
+
+blc4,0,Face_thickness,length/2-Rib_thickness/2,height- Face_thickness*2
+
+blc4,length/2-Rib_thickness/2,Face_thickness,Rib_thickness,height- Face_thickness*2
+
+blc4,length/2+Rib_thickness/2,Face_thickness,length/2-Rib_thickness/2,height- Face_thickness*2
+
+
+blc4,0,height-Face_thickness,length, Face_thickness		! area - one corner, then width and height
+
+AGLUE,ALL
+
+! mesh 2D areas
+
+ET,1, PLANE55			! Thermal element only
+MP,Dens,1,630			! Density
+mp,c,1,2.01			! Specific heat capacity
+mp,kxx,1,k_plw			! Thermal conductivity of the plywood 
+
+MP,Dens,2,100			! Density				! core material
+mp,c,2,0.1			! Specific heat capacity
+mp,kxx,2,k_foam			! Thermal conductivity
+
+
+
+
+ASEL,S,LOC,Y,height - Face_thickness, height     ! Material to upper surface
+AATT,       1, ,   1,       0,
+ASEL,ALL
+
+ASEL,S,LOC,Y,Face_thickness,height - Face_thickness	! Material to core surface
+AATT,       2, ,   1,       0, 
+ASEL,ALL
+
+ASEL,S,LOC,Y,0,Face_thickness			! Material to lower surface
+AATT,       1, ,   1,       0,
+ASEL,ALL
+
+
+*If,stiffener_off,eq,0,then
+ASEL,S,LOC,X,length/2-Rib_thickness/2, length/2 + Rib_thickness/2     ! Material to vertical stiffener 
+ASEL,R,LOC,Y,height - Face_thickness,Face_thickness
+AATT,       1, ,   1,       0,  
+ASEL,ALL
+*EndIf
+
+
+AESIZE,ALL,ESIZE,
+AMESH,ALL			! Mesh area
+
+
+
+
+FINISH
+/SOLU
+
+ANTYPE,4			! Transient analysis
+
+time,300			! Time at end
+
+nropt,full			! Newton Raphson = full
+lumpm,0				! Lumped mass approx off
+nsubst,20			! 20 substeps
+neqit,100			! Max no. of iterations = 100
+autots,off			! Auto time search on
+lnsrch,on			! Line search on
+outres,all,all			! Output data for all substeps
+kbc,1
+
+! fixed temp BC's
+NSEL,S,LOC,Y,height		! select nodes on top with y=height
+D,ALL,TEMP,TEMP2		! apply fixed temp of 500K
+NSEL,ALL
+NSEL,s,LOC,Y,0
+D,ALL,TEMP,TEMP1		! apply fixed temp of 100K
+NSEL,ALL
+IC,all,Temp,TEMP1		! Initial Conditions: 100K
+
+SOLVE
+FINISH
+
+
+
+
+
+/POST1	
+
+NSEL,S,LOC,Y,0
+FSUM, ,
+*GET, HEAT_SUM, FSUM, 0,Item, HEAT
+NSEL, ALL
+
+
+K_EFF=(HEAT_SUM*height)/(length*(TEMP2 - TEMP1))
+
+K_EFF_REL  = K_EFF/0.12
+
+/TITLE,K_eff= %K_eff% (K/m W), K_EFF_rel = %K_EFF_rel%
+
+
+!/POST1				! Enter postprocessor
+!/CONT,1,8,TEMP1,,TEMP2		! Define a contour range
+!PLNSOL,TEMP			! Plot temperature contour
+
+FINISH
+
