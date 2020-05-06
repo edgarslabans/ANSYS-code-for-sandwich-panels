@@ -1,6 +1,7 @@
 ! The file represents ANSYS commmand interface script for creating of 2D the parametrical model 
 ! of the sanwich panel for further thermal analysis
 ! The output of the file is effective thermal conductivity of the sandwich panel with foam core
+! Created by Edgars Labans, 2015 
 
 finish
 /clear
